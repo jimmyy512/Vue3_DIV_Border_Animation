@@ -164,7 +164,7 @@ const gridStyle = computed(() => ({
 /** 總高度 */
 const TOTAL_HEIGHT = computed(() => {
   if (iconType.value === "Heart") {
-    return 300;
+    return 350;
   } else {
     return 200;
   }
@@ -204,7 +204,8 @@ onMounted(() => {
 #interview-view {
   padding: 20px;
   margin: 0 auto;
-  max-width: 640px;
+  max-width: 450px;
+  min-width: 260px;
 
   .radio-group {
     display: flex;

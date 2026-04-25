@@ -1,32 +1,29 @@
 <template>
-  <div id="InterviewView" class="min-h-screen bg-slate-950 flex flex-col items-center p-10 gap-8">
+  <div id="InterviewView" class="min-h-screen bg-slate-950 flex flex-col items-center p-10px gap-8">
     <!-- 控制面板 -->
     <div
-      class="bg-slate-900/50 p-6 rounded-2xl border border-white/10 backdrop-blur-xl mb-8 flex flex-wrap gap-6 max-w-4xl w-full"
+      class="bg-slate-900/50 p-20px rounded-2xl border border-white/10 backdrop-blur-xl flex flex-wrap max-w-4xl w-full"
+      style="--gap: 1.5rem; gap: var(--gap)"
     >
-      <div class="control-item">
+      <div class="control-item control-item-mobile-half">
         <label>走線比例 ({{ (config.dashRatio * 100).toFixed(0) }}%)</label>
-        <input
-          type="range"
-          v-model.number="config.dashRatio"
-          min="0.05"
-          max="0.5"
-          step="0.01"
-          class="w-40"
-        />
+        <input type="range" v-model.number="config.dashRatio" min="0.05" max="0.5" step="0.01" />
       </div>
 
       <!-- 旋轉速度調整 (秒/圈) -->
-      <div class="control-item">
+      <div class="control-item control-item-mobile-half">
         <label>旋轉速度 ({{ config.duration }} 秒/圈)</label>
-        <input
-          type="range"
-          v-model.number="config.duration"
-          min="1"
-          max="10"
-          step="0.5"
-          class="w-32"
-        />
+        <input type="range" v-model.number="config.duration" min="1" max="10" step="0.5" />
+      </div>
+
+      <div class="control-item control-item-mobile-half">
+        <label>線條粗細 ({{ config.lineWidth }}px)</label>
+        <input type="range" v-model.number="config.lineWidth" min="1" max="10" step="1" />
+      </div>
+
+      <div class="control-item control-item-mobile-half">
+        <label>圓角大小 ({{ config.borderRadius }}px)</label>
+        <input type="range" v-model.number="config.borderRadius" min="0" max="100" step="1" />
       </div>
 
       <div class="control-item">
@@ -61,37 +58,13 @@
         />
       </div>
 
-      <div class="control-item">
-        <label>線條粗細 ({{ config.lineWidth }}px)</label>
-        <input
-          type="range"
-          v-model.number="config.lineWidth"
-          min="1"
-          max="10"
-          step="1"
-          class="w-32"
-        />
-      </div>
-
-      <div class="control-item">
-        <label>圓角大小 ({{ config.borderRadius }}px)</label>
-        <input
-          type="range"
-          v-model.number="config.borderRadius"
-          min="0"
-          max="100"
-          step="1"
-          class="w-32"
-        />
-      </div>
-
       <div class="flex items-end pb-1">
         <button @click="resetConfig" class="reset-btn">重設設定</button>
       </div>
     </div>
 
-    <div class="flex flex-wrap items-center justify-center gap-8">
-      <AnimatedBorder width="320px" height="192px" v-bind="config">
+    <div class="flex flex-wrap items-center justify-center gap-20px mb-100px">
+      <AnimatedBorder width="280px" height="150px" v-bind="config">
         <div class="text-center">
           <h3 class="text-xl font-bold tracking-wider text-cyan-400">RECT</h3>
         </div>
@@ -106,6 +79,24 @@
       >
         <div class="text-center">
           <h3 class="text-xl font-bold tracking-wider text-rose-400">HEART</h3>
+        </div>
+      </AnimatedBorder>
+
+      <AnimatedBorder
+        width="160px"
+        height="160px"
+        v-bind="{
+          ...config,
+          borderRadius: 100,
+        }"
+      >
+        <!-- 如果圖片本身自帶透明白邊，可以加上例如 scale-[1.5] 來放大對齊 -->
+        <div class="flex items-center justify-center w-full h-full">
+          <img
+            src="@/assets/IG_Logo.webp"
+            alt="IG Logo"
+            class="w-full h-full object-contain scale-[1.62]"
+          />
         </div>
       </AnimatedBorder>
     </div>
@@ -188,8 +179,12 @@ const resetConfig = () => {
     }
   }
 
+  .control-item-mobile-half {
+    @apply max-sm:w-[calc(50%-var(--gap)/2)];
+  }
+
   .reset-btn {
-    @apply text-[10px] text-slate-500 hover:text-white transition-colors underline underline-offset-4;
+    @apply text-[10px] text-slate-500 p-x-10px p-y-5px font-bold cursor-pointer;
   }
 
   input[type="range"] {

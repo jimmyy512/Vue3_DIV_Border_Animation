@@ -58,6 +58,7 @@ const props = withDefaults(defineProps<AnimatedBorderProps>(), {
 });
 
 const canvasRef = ref<HTMLCanvasElement | null>(null);
+/** 預留空間也許未來線條需要發光 */
 const padding = 24;
 const FPS_LIMIT = 60;
 const fpsInterval = 1000 / FPS_LIMIT;
@@ -118,7 +119,6 @@ const resize = () => {
     canvas.style.top = `-${padding}px`;
     canvas.style.left = `-${padding}px`;
     ctx.setTransform(1, 0, 0, 1, 0, 0);
-    // 不對主 canvas 進行 scale，因為我們將使用 drawImage 直接繪製 offscreenCanvas 的原始像素
 
     if (offscreenCanvas && offscreenCtx) {
       offscreenCanvas.width = width;
@@ -225,18 +225,16 @@ onMounted(() => {
     }
     offscreenCtx.restore();
 
-    // 2. 基礎走線 & 3. 對角走線
+    // 2. 開始畫雙走線
     if (props.showAnimation) {
       offscreenCtx.save();
-      const gradient = offscreenCtx.createLinearGradient(0, 0, drawW, drawH);
-      gradient.addColorStop(0, props.lineColor1);
-      gradient.addColorStop(1, props.lineColor2);
-      offscreenCtx.strokeStyle = gradient;
       offscreenCtx.lineWidth = lw;
       offscreenCtx.lineCap = "round";
       offscreenCtx.lineJoin = "round";
       offscreenCtx.setLineDash([dashLength, currentPerimeter - dashLength]);
 
+      // *基礎走線
+      offscreenCtx.strokeStyle = props.lineColor1;
       offscreenCtx.lineDashOffset = -offset;
       if (path2D) {
         offscreenCtx.stroke(path2D);
@@ -246,8 +244,9 @@ onMounted(() => {
         offscreenCtx.stroke();
       }
 
-      // 3. 對角走線
+      // *對角走線
       if (props.showOpposite) {
+        offscreenCtx.strokeStyle = props.lineColor2;
         offscreenCtx.lineDashOffset = -offset - currentPerimeter / 2;
         if (path2D) {
           offscreenCtx.stroke(path2D);
