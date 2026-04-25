@@ -3,7 +3,7 @@
   <div class="overflow-hidden" :style="{ width: width, height: height }">
     <div class="animated-border-container relative group">
       <!-- 內容槽位 -->
-      <div class="absolute inset-0 z-10 flex items-center justify-center">
+      <div class="absolute inset-0 flex items-center justify-center">
         <slot></slot>
       </div>
       <!-- 畫布 -->
@@ -28,6 +28,8 @@ export interface AnimatedBorderProps {
   showOpposite?: boolean;
   lineWidth?: number;
   borderRadius?: number;
+  syncAnimation?: boolean;
+  showAnimation?: boolean;
 }
 
 const props = withDefaults(defineProps<AnimatedBorderProps>(), {
@@ -49,6 +51,10 @@ const props = withDefaults(defineProps<AnimatedBorderProps>(), {
   /** 線條粗細 */
   lineWidth: 3,
   borderRadius: 8,
+  /** 是否所有實例的動畫完全同步 */
+  syncAnimation: true,
+  /** 是否顯示動畫 */
+  showAnimation: true,
 });
 
 const canvasRef = ref<HTMLCanvasElement | null>(null);
@@ -57,7 +63,6 @@ const FPS_LIMIT = 60;
 const fpsInterval = 1000 / FPS_LIMIT;
 
 let animationFrameId: number;
-let offset = 0;
 let lastDrawTime = performance.now();
 
 const resize = () => {
@@ -89,6 +94,9 @@ onMounted(() => {
   const canvas = canvasRef.value;
   const ctx = canvas.getContext("2d");
   if (!ctx) return;
+
+  // 隨機時間偏移量用於不同步時錯開每個實例的動畫起點
+  const randomTimeOffset = Math.random() * 100000;
 
   let totalLength = 0;
   let path2D: Path2D | null = null;
@@ -135,58 +143,71 @@ onMounted(() => {
       ctx.translate(-props.viewBox.x, -props.viewBox.y);
     }
 
+    // 線寬
+    const lw = props.pathData ? props.lineWidth / (drawW / props.viewBox.w) : props.lineWidth;
+
+    const inset = lw / 2;
     const r = props.borderRadius;
     const rectPerimeter = 2 * (drawW + drawH) + r * (2 * Math.PI - 8);
     const currentPerimeter = props.pathData ? totalLength : rectPerimeter;
 
-    const speedPerMs = currentPerimeter / (props.duration * 1000);
-    offset = (offset + speedPerMs * elapsed) % currentPerimeter;
+    // 如果 syncAnimation 為 true，則使用 global 的 currentTime，所有實例進度一致
+    // 否則加上獨立的隨機時間偏移量，讓動畫看起來是錯開的
+    const timeToUse = props.syncAnimation ? currentTime : currentTime + randomTimeOffset;
+    const progress = (timeToUse % (props.duration * 1000)) / (props.duration * 1000);
+    const offset = progress * currentPerimeter;
     const dashLength = currentPerimeter * props.dashRatio;
 
     // 1. 底色
     ctx.save();
     ctx.strokeStyle = props.baseColor;
-    ctx.lineWidth = props.pathData ? props.lineWidth / (drawW / props.viewBox.w) : props.lineWidth;
+    ctx.lineWidth = lw;
     if (path2D) {
       ctx.stroke(path2D);
     } else {
       ctx.beginPath();
-      ctx.roundRect(0, 0, drawW, drawH, r);
+      // 最原始寫法
+      // ctx.roundRect(0, 0, drawW, drawH, r);
+      // 由於組件最外層有加上 overflow-hidden, 所以要減去邊距, 不然會顯示不完整
+      ctx.roundRect(inset, inset, drawW - lw, drawH - lw, Math.max(0, r - inset));
       ctx.stroke();
     }
     ctx.restore();
 
-    // 2. 走線
-    ctx.save();
-    const gradient = ctx.createLinearGradient(0, 0, drawW, drawH);
-    gradient.addColorStop(0, props.lineColor1);
-    gradient.addColorStop(1, props.lineColor2);
-    ctx.strokeStyle = gradient;
-    ctx.lineWidth = props.pathData ? props.lineWidth / (drawW / props.viewBox.w) : props.lineWidth;
-    ctx.lineCap = "round";
-    ctx.lineJoin = "round";
-    ctx.setLineDash([dashLength, currentPerimeter - dashLength]);
+    // 2. 基礎走線 & 3. 對角走線
+    if (props.showAnimation) {
+      ctx.save();
+      const gradient = ctx.createLinearGradient(0, 0, drawW, drawH);
+      gradient.addColorStop(0, props.lineColor1);
+      gradient.addColorStop(1, props.lineColor2);
+      ctx.strokeStyle = gradient;
+      ctx.lineWidth = lw;
+      ctx.lineCap = "round";
+      ctx.lineJoin = "round";
+      ctx.setLineDash([dashLength, currentPerimeter - dashLength]);
 
-    ctx.lineDashOffset = -offset;
-    if (path2D) {
-      ctx.stroke(path2D);
-    } else {
-      ctx.beginPath();
-      ctx.roundRect(0, 0, drawW, drawH, r);
-      ctx.stroke();
-    }
-
-    if (props.showOpposite) {
-      ctx.lineDashOffset = -offset - currentPerimeter / 2;
+      ctx.lineDashOffset = -offset;
       if (path2D) {
         ctx.stroke(path2D);
       } else {
         ctx.beginPath();
-        ctx.roundRect(0, 0, drawW, drawH, r);
+        ctx.roundRect(inset, inset, drawW - lw, drawH - lw, Math.max(0, r - inset));
         ctx.stroke();
       }
+
+      // 3. 對角走線
+      if (props.showOpposite) {
+        ctx.lineDashOffset = -offset - currentPerimeter / 2;
+        if (path2D) {
+          ctx.stroke(path2D);
+        } else {
+          ctx.beginPath();
+          ctx.roundRect(inset, inset, drawW - lw, drawH - lw, Math.max(0, r - inset));
+          ctx.stroke();
+        }
+      }
+      ctx.restore();
     }
-    ctx.restore();
     ctx.restore();
   };
 
@@ -210,7 +231,6 @@ onUnmounted(() => {
 </script>
 
 <style lang="scss" scoped>
-/* 內層 container：撐滿 wrapper，canvas 在此之上定位 */
 .animated-border-container {
   width: 100%;
   height: 100%;
