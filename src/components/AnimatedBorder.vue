@@ -45,7 +45,7 @@ const props = withDefaults(defineProps<AnimatedBorderProps>(), {
   /** 走線顏色 1 */
   lineColor1: "#ffffff",
   /** 走線顏色 2 */
-  lineColor2: "#9ca3af",
+  lineColor2: "#ffffff",
   /** 是否顯示對角走線 */
   showOpposite: true,
   /** 線條粗細 */

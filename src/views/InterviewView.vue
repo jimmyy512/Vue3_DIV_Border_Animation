@@ -83,7 +83,7 @@ const config: AnimatedBorderProps = {
   duration: 1,
   baseColor: "#6c6c6c",
   lineColor1: "#ffffff",
-  lineColor2: "#9ca3af",
+  lineColor2: "#ffffff",
   showOpposite: true,
   lineWidth: 3,
   borderRadius: 8,
