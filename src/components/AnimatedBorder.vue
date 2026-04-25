@@ -65,6 +65,28 @@ const fpsInterval = 1000 / FPS_LIMIT;
 let animationFrameId: number;
 let lastDrawTime = performance.now();
 
+// 防呆: 兼容舊版瀏覽器不支援 ctx.roundRect (如 iPhone 6, iOS 12 Safari)
+const drawRoundRect = (
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  r: number,
+) => {
+  if (ctx.roundRect) {
+    ctx.roundRect(x, y, w, h, r);
+  } else {
+    const validR = Math.max(0, Math.min(r, w / 2, h / 2));
+    ctx.moveTo(x + validR, y);
+    ctx.arcTo(x + w, y, x + w, y + h, validR);
+    ctx.arcTo(x + w, y + h, x, y + h, validR);
+    ctx.arcTo(x, y + h, x, y, validR);
+    ctx.arcTo(x, y, x + w, y, validR);
+    ctx.closePath();
+  }
+};
+
 const resize = () => {
   if (!canvasRef.value) return;
   const canvas = canvasRef.value;
@@ -145,10 +167,19 @@ onMounted(() => {
 
     // 線寬
     const lw = props.pathData ? props.lineWidth / (drawW / props.viewBox.w) : props.lineWidth;
-
     const inset = lw / 2;
     const r = props.borderRadius;
-    const rectPerimeter = 2 * (drawW + drawH) + r * (2 * Math.PI - 8);
+
+    // 計算實際繪製的矩形尺寸與圓角半徑 (扣除線寬造成的內縮)
+    const actualW = Math.max(0, drawW - lw);
+    const actualH = Math.max(0, drawH - lw);
+    let actualR = Math.max(0, r - inset);
+
+    // 確保圓角半徑不會超過長寬的一半 (符合 Canvas roundRect 原生行為)
+    actualR = Math.min(actualR, actualW / 2, actualH / 2);
+
+    // 使用實際尺寸計算周長，確保動畫 offset 計算完全精準，避免動畫循環時產生跳動 (卡頓)
+    const rectPerimeter = 2 * (actualW + actualH) + actualR * (2 * Math.PI - 8);
     const currentPerimeter = props.pathData ? totalLength : rectPerimeter;
 
     // 如果 syncAnimation 為 true，則使用 global 的 currentTime，所有實例進度一致
@@ -169,7 +200,7 @@ onMounted(() => {
       // 最原始寫法
       // ctx.roundRect(0, 0, drawW, drawH, r);
       // 由於組件最外層有加上 overflow-hidden, 所以要減去邊距, 不然會顯示不完整
-      ctx.roundRect(inset, inset, drawW - lw, drawH - lw, Math.max(0, r - inset));
+      drawRoundRect(ctx, inset, inset, drawW - lw, drawH - lw, Math.max(0, r - inset));
       ctx.stroke();
     }
     ctx.restore();
@@ -191,7 +222,7 @@ onMounted(() => {
         ctx.stroke(path2D);
       } else {
         ctx.beginPath();
-        ctx.roundRect(inset, inset, drawW - lw, drawH - lw, Math.max(0, r - inset));
+        drawRoundRect(ctx, inset, inset, drawW - lw, drawH - lw, Math.max(0, r - inset));
         ctx.stroke();
       }
 
@@ -202,7 +233,7 @@ onMounted(() => {
           ctx.stroke(path2D);
         } else {
           ctx.beginPath();
-          ctx.roundRect(inset, inset, drawW - lw, drawH - lw, Math.max(0, r - inset));
+          drawRoundRect(ctx, inset, inset, drawW - lw, drawH - lw, Math.max(0, r - inset));
           ctx.stroke();
         }
       }
