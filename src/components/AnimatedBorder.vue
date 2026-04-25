@@ -62,6 +62,9 @@ const padding = 24;
 const FPS_LIMIT = 60;
 const fpsInterval = 1000 / FPS_LIMIT;
 
+let offscreenCanvas: HTMLCanvasElement | null = null;
+let offscreenCtx: CanvasRenderingContext2D | null = null;
+
 let animationFrameId: number;
 let lastDrawTime = performance.now();
 
@@ -93,6 +96,11 @@ const resize = () => {
   const ctx = canvas.getContext("2d");
   if (!ctx) return;
 
+  if (!offscreenCanvas) {
+    offscreenCanvas = document.createElement("canvas");
+    offscreenCtx = offscreenCanvas.getContext("2d");
+  }
+
   // 抓 container 的父層 (wrapper) 的尺寸，避免 canvas 超出影響 scroll
   const container = canvas.parentElement;
   const wrapper = container?.parentElement;
@@ -100,14 +108,24 @@ const resize = () => {
   if (sizeSource) {
     const rect = sizeSource.getBoundingClientRect();
     const dpr = window.devicePixelRatio || 1;
-    canvas.width = (rect.width + padding * 2) * dpr;
-    canvas.height = (rect.height + padding * 2) * dpr;
+    const width = (rect.width + padding * 2) * dpr;
+    const height = (rect.height + padding * 2) * dpr;
+
+    canvas.width = width;
+    canvas.height = height;
     canvas.style.width = `${rect.width + padding * 2}px`;
     canvas.style.height = `${rect.height + padding * 2}px`;
     canvas.style.top = `-${padding}px`;
     canvas.style.left = `-${padding}px`;
     ctx.setTransform(1, 0, 0, 1, 0, 0);
-    ctx.scale(dpr, dpr);
+    // 不對主 canvas 進行 scale，因為我們將使用 drawImage 直接繪製 offscreenCanvas 的原始像素
+
+    if (offscreenCanvas && offscreenCtx) {
+      offscreenCanvas.width = width;
+      offscreenCanvas.height = height;
+      offscreenCtx.setTransform(1, 0, 0, 1, 0, 0);
+      offscreenCtx.scale(dpr, dpr);
+    }
   }
 };
 
@@ -146,23 +164,25 @@ onMounted(() => {
     if (elapsed < fpsInterval) return;
     lastDrawTime = currentTime - (elapsed % fpsInterval);
 
+    if (!offscreenCanvas || !offscreenCtx) return;
+
     const dpr = window.devicePixelRatio || 1;
     const w = canvas.width / dpr;
     const h = canvas.height / dpr;
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    offscreenCtx.clearRect(0, 0, w, h);
 
     const drawW = w - padding * 2;
     const drawH = h - padding * 2;
     if (drawW <= 0 || drawH <= 0) return;
 
-    ctx.save();
-    ctx.translate(padding, padding);
+    offscreenCtx.save();
+    offscreenCtx.translate(padding, padding);
 
     if (path2D) {
       const scaleX = drawW / props.viewBox.w;
       const scaleY = drawH / props.viewBox.h;
-      ctx.scale(scaleX, scaleY);
-      ctx.translate(-props.viewBox.x, -props.viewBox.y);
+      offscreenCtx.scale(scaleX, scaleY);
+      offscreenCtx.translate(-props.viewBox.x, -props.viewBox.y);
     }
 
     // 線寬
@@ -190,56 +210,60 @@ onMounted(() => {
     const dashLength = currentPerimeter * props.dashRatio;
 
     // 1. 底色
-    ctx.save();
-    ctx.strokeStyle = props.baseColor;
-    ctx.lineWidth = lw;
+    offscreenCtx.save();
+    offscreenCtx.strokeStyle = props.baseColor;
+    offscreenCtx.lineWidth = lw;
     if (path2D) {
-      ctx.stroke(path2D);
+      offscreenCtx.stroke(path2D);
     } else {
-      ctx.beginPath();
+      offscreenCtx.beginPath();
       // 最原始寫法
-      // ctx.roundRect(0, 0, drawW, drawH, r);
+      // offscreenCtx.roundRect(0, 0, drawW, drawH, r);
       // 由於組件最外層有加上 overflow-hidden, 所以要減去邊距, 不然會顯示不完整
-      drawRoundRect(ctx, inset, inset, drawW - lw, drawH - lw, Math.max(0, r - inset));
-      ctx.stroke();
+      drawRoundRect(offscreenCtx, inset, inset, drawW - lw, drawH - lw, Math.max(0, r - inset));
+      offscreenCtx.stroke();
     }
-    ctx.restore();
+    offscreenCtx.restore();
 
     // 2. 基礎走線 & 3. 對角走線
     if (props.showAnimation) {
-      ctx.save();
-      const gradient = ctx.createLinearGradient(0, 0, drawW, drawH);
+      offscreenCtx.save();
+      const gradient = offscreenCtx.createLinearGradient(0, 0, drawW, drawH);
       gradient.addColorStop(0, props.lineColor1);
       gradient.addColorStop(1, props.lineColor2);
-      ctx.strokeStyle = gradient;
-      ctx.lineWidth = lw;
-      ctx.lineCap = "round";
-      ctx.lineJoin = "round";
-      ctx.setLineDash([dashLength, currentPerimeter - dashLength]);
+      offscreenCtx.strokeStyle = gradient;
+      offscreenCtx.lineWidth = lw;
+      offscreenCtx.lineCap = "round";
+      offscreenCtx.lineJoin = "round";
+      offscreenCtx.setLineDash([dashLength, currentPerimeter - dashLength]);
 
-      ctx.lineDashOffset = -offset;
+      offscreenCtx.lineDashOffset = -offset;
       if (path2D) {
-        ctx.stroke(path2D);
+        offscreenCtx.stroke(path2D);
       } else {
-        ctx.beginPath();
-        drawRoundRect(ctx, inset, inset, drawW - lw, drawH - lw, Math.max(0, r - inset));
-        ctx.stroke();
+        offscreenCtx.beginPath();
+        drawRoundRect(offscreenCtx, inset, inset, drawW - lw, drawH - lw, Math.max(0, r - inset));
+        offscreenCtx.stroke();
       }
 
       // 3. 對角走線
       if (props.showOpposite) {
-        ctx.lineDashOffset = -offset - currentPerimeter / 2;
+        offscreenCtx.lineDashOffset = -offset - currentPerimeter / 2;
         if (path2D) {
-          ctx.stroke(path2D);
+          offscreenCtx.stroke(path2D);
         } else {
-          ctx.beginPath();
-          drawRoundRect(ctx, inset, inset, drawW - lw, drawH - lw, Math.max(0, r - inset));
-          ctx.stroke();
+          offscreenCtx.beginPath();
+          drawRoundRect(offscreenCtx, inset, inset, drawW - lw, drawH - lw, Math.max(0, r - inset));
+          offscreenCtx.stroke();
         }
       }
-      ctx.restore();
+      offscreenCtx.restore();
     }
-    ctx.restore();
+    offscreenCtx.restore();
+
+    // 將離屏 canvas 的內容繪製到主要 canvas 上
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(offscreenCanvas, 0, 0);
   };
 
   initPath();
