@@ -167,12 +167,13 @@ onMounted(() => {
     if (!offscreenCanvas || !offscreenCtx) return;
 
     const dpr = window.devicePixelRatio || 1;
-    const w = canvas.width / dpr;
-    const h = canvas.height / dpr;
-    offscreenCtx.clearRect(0, 0, w, h);
+    const canvasLogicWidth = canvas.width / dpr;
+    const canvasLogicHeight = canvas.height / dpr;
+    // 每個 Frame 固定清除前一幀的畫面
+    offscreenCtx.clearRect(0, 0, canvasLogicWidth, canvasLogicHeight);
 
-    const drawW = w - padding * 2;
-    const drawH = h - padding * 2;
+    const drawW = canvasLogicWidth - padding * 2;
+    const drawH = canvasLogicHeight - padding * 2;
     if (drawW <= 0 || drawH <= 0) return;
 
     offscreenCtx.save();
