@@ -43,7 +43,7 @@
       <label class="radio-item">
         <input type="radio" name="icon-type" value="Rect" v-model="iconType" />
         <span class="custom-radio"></span>
-        <span class="label-text">React</span>
+        <span class="label-text">Rect</span>
       </label>
       <label class="radio-item">
         <input type="radio" name="icon-type" value="Heart" v-model="iconType" />
