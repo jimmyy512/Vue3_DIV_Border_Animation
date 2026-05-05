@@ -196,10 +196,10 @@ onMounted(() => {
     const actualH = Math.max(0, drawH - lw);
     let actualR = Math.max(0, r - inset);
 
-    // 確保圓角半徑不會超過長寬的一半 (符合 Canvas roundRect 原生行為)
+    // 確保圓角半徑不會超過長寬的一半
     actualR = Math.min(actualR, actualW / 2, actualH / 2);
 
-    // 使用實際尺寸計算周長，確保動畫 offset 計算完全精準，避免動畫循環時產生跳動 (卡頓)
+    // 圓角矩形總周長 = (2W + 2H - 8R) + (2 * π * R)
     const rectPerimeter = 2 * (actualW + actualH) + actualR * (2 * Math.PI - 8);
     const currentPerimeter = props.pathData ? totalLength : rectPerimeter;
 
